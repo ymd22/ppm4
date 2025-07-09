@@ -49,4 +49,32 @@ for mineral in minerals:
         f"{mineral}",
         min_value=0.0,
         value=default_target_ppm[mineral],
-        key=f"target_{mineral}"_
+        key=f"target_{mineral}"
+    )
+
+if st.button("Calculate"):
+    drops_needed = {}
+    actual_ppm = {}
+    total_tds = 0.0
+
+    st.subheader("💧 Drops Needed:")
+    for mineral in minerals:
+        drops = calculate_drops(
+            measured_ppm[mineral],
+            test_volume_ml,
+            batch_volume_ml,
+            target_ppm[mineral]
+        )
+        drops_needed[mineral] = drops
+        st.write(f"{mineral}: {drops} drops")
+
+    st.subheader("📊 Actual PPM in Final Batch:")
+    for mineral in minerals:
+        ppm_per_ml = measured_ppm[mineral] / test_volume_ml
+        ppm_per_drop = ppm_per_ml * 2.5
+        total_ppm = ppm_per_drop * drops_needed[mineral] / batch_volume_ml
+        actual_ppm[mineral] = total_ppm
+        total_tds += total_ppm
+        st.write(f"{mineral}: {total_ppm:.2f} ppm")
+
+    st.subheader(f"🔬 Total Estimated TDS: {total_tds:.2f} ppm")
