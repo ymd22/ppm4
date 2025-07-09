@@ -50,4 +50,3 @@ for mineral in minerals:
         min_value=0.0,
         value=default_target_ppm[mineral],
         key=f"target_{mineral}"_
-
