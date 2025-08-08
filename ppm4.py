@@ -1,69 +1,81 @@
 import streamlit as st
 
-# Constants
-DROPPER_VOLUME_ML = 2.5  # One drop = 2.5 mL of concentrate
+def calculate_drops(measured_ppm, test_volume_ml, batch_volume_ml, target_ppm):
+    if measured_ppm == 0:
+        return 0
+    # ppm per mL of concentrate
+    ppm_per_ml_concentrate = measured_ppm / test_volume_ml
+    # ppm per drop in final batch
+    ppm_per_drop_in_batch = ppm_per_ml_concentrate / batch_volume_ml
+    return round(target_ppm / ppm_per_drop_in_batch, 2)
 
-def drops_needed(target_ppm, stock_ppm, test_volume_ml, batch_volume_ml):
-    """
-    Calculate how many drops are needed to achieve target ppm in the batch.
-    """
-    if stock_ppm == 0 or test_volume_ml == 0:
-        return 0, 0
+st.title("PPM Drop Calculator with TDS")
 
-    ppm_per_ml = stock_ppm / test_volume_ml
-    ppm_per_drop = ppm_per_ml * DROPPER_VOLUME_ML
+# Preset default volumes
+default_test_volume = 50.0   # volume used to test 1 drop
+default_batch_volume = 500.0 # final batch size
 
-    # Total mg of mineral needed = target_ppm × (batch_L)
-    total_mg_needed = target_ppm * (batch_volume_ml / 1000)
-    drops = total_mg_needed / ppm_per_drop
+test_volume_ml = st.number_input("Test volume for 1 drop (mL)", min_value=1.0, value=default_test_volume)
+batch_volume_ml = st.number_input("Batch volume to prepare (mL)", min_value=1.0, value=default_batch_volume)
 
-    # Actual ppm in batch = drops × ppm_per_drop / batch_L
-    actual_ppm = (drops * ppm_per_drop) / (batch_volume_ml / 1000)
+minerals = ["Magnesium (Mg)", "Calcium (Ca)", "Sodium (Na)", "KHCO₃ (KH)"]
 
-    return round(drops, 2), round(actual_ppm, 2)
-
-st.title("💧 Brew Water Drop Calculator")
-
-# Volume inputs
-test_volume_ml = st.number_input("Volume used to test ppm (mL, e.g. 50)", value=50.0, min_value=1.0)
-batch_volume_ml = st.number_input("Final batch volume (mL, e.g. 500)", value=500.0, min_value=1.0)
-
-# Minerals
-minerals = ["Magnesium (Mg)", "Chloride (Cl)", "Sodium (Na)", "KHCO₃ (KH)"]
-default_stock_ppm = {
+default_measured_ppm = {
     "Magnesium (Mg)": 100.0,
-    "Chloride (Cl)": 200.0,
+    "Calcium (Ca)": 200.0,
     "Sodium (Na)": 65.0,
     "KHCO₃ (KH)": 75.0
 }
+
 default_target_ppm = {
     "Magnesium (Mg)": 40.0,
-    "Chloride (Cl)": 40.0,
-    "Sodium (Na)": 10.0,
+    "Calcium (Ca)": 40.0,
+    "Sodium (Na)": 20.0,
     "KHCO₃ (KH)": 25.0
 }
 
-st.header("📥 Concentrate PPM (in test volume)")
-stock_ppm = {}
+st.header("Measured PPM of 1 drop in test volume")
+measured_ppm = {}
 for mineral in minerals:
-    stock_ppm[mineral] = st.number_input(f"{mineral} PPM", value=default_stock_ppm[mineral], key=f"stock_{mineral}")
+    measured_ppm[mineral] = st.number_input(
+        f"{mineral}",
+        min_value=0.0,
+        value=default_measured_ppm[mineral],
+        key=f"measured_{mineral}"
+    )
 
-st.header("🎯 Target PPM for Final Water")
+st.header("Target PPM in final batch")
 target_ppm = {}
 for mineral in minerals:
-    target_ppm[mineral] = st.number_input(f"Target {mineral} (ppm)", value=default_target_ppm[mineral], key=f"target_{mineral}")
+    target_ppm[mineral] = st.number_input(
+        f"{mineral}",
+        min_value=0.0,
+        value=default_target_ppm[mineral],
+        key=f"target_{mineral}"
+    )
 
-if st.button("Calculate Drops"):
-    st.subheader("🧮 Drop Count & Final PPM")
-    total_tds = 0
+if st.button("Calculate"):
+    drops_needed = {}
+    actual_ppm = {}
+    total_tds = 0.0
+
+    st.subheader("💧 Drops Needed:")
     for mineral in minerals:
-        drops, actual = drops_needed(
-            target_ppm[mineral],
-            stock_ppm[mineral],
+        drops = calculate_drops(
+            measured_ppm[mineral],
             test_volume_ml,
-            batch_volume_ml
+            batch_volume_ml,
+            target_ppm[mineral]
         )
-        total_tds += actual
-        st.write(f"**{mineral}**: {drops} drops → ~{actual} ppm")
+        drops_needed[mineral] = drops
+        st.write(f"{mineral}: {drops} drops")
 
-    st.markdown(f"### ✅ Estimated Total TDS: `{round(total_tds, 1)} ppm`")
+    st.subheader("📊 Actual PPM in Final Batch:")
+    for mineral in minerals:
+        ppm_per_ml_concentrate = measured_ppm[mineral] / test_volume_ml
+        ppm_in_batch = ppm_per_ml_concentrate * drops_needed[mineral] / batch_volume_ml
+        actual_ppm[mineral] = ppm_in_batch
+        total_tds += ppm_in_batch
+        st.write(f"{mineral}: {ppm_in_batch:.2f} ppm")
+
+    st.subheader(f"🔬 Total Estimated TDS: {total_tds:.2f} ppm")
